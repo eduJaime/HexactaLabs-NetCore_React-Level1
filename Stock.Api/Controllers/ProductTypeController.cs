@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Stock.Api.DTOs;
+using Stock.Api.Extensions;
 using Stock.AppService.Services;
 using Stock.Model.Entities;
 using System;
@@ -50,11 +51,19 @@ namespace Stock.Api.Controllers
         /// </summary>
         /// <param name="value">Una instancia</param>
         [HttpPost]
-        public ProductType Post([FromBody] ProductTypeDTO value)
+        public ActionResult Post([FromBody] ProductTypeDTO value)
         {
-            TryValidateModel(value);
-            var productType = this.service.Create(this.mapper.Map<ProductType>(value));
-            return this.mapper.Map<ProductType>(productType);
+            
+            if (TryValidateModel(value))
+            {
+                var productType = this.mapper.Map<ProductType>(value);
+                this.service.Create(productType);
+                value.Id = productType.Id;
+                return Ok(new { Success = true, Message = "", data = value });
+            }
+            else {
+                return Ok(new { Success = false, Message = "Missing Validations"});
+            }
         }
 
         /// <summary>
@@ -63,12 +72,19 @@ namespace Stock.Api.Controllers
         /// <param name="id">Identificador de la instancia a editar</param>
         /// <param name="value">Una instancia con los nuevos datos</param>
         [HttpPut("{id}")]
-        public void Put(string id, [FromBody] ProductTypeDTO value)
+        public ActionResult Put(string id, [FromBody] ProductTypeDTO value)
         {
-            var productType = this.service.Get(id);
-            TryValidateModel(value);
-            this.mapper.Map<ProductTypeDTO, ProductType>(value, productType);
-            this.service.Update(productType);
+            if (TryValidateModel(value)) 
+            {
+                var productType = this.service.Get(id);
+                this.mapper.Map<ProductTypeDTO, ProductType>(value, productType);
+                this.service.Update(productType);
+                return Ok(new { Success = true, Message = "", data = value });
+            } 
+            else 
+            {
+                return BadRequest("Missing Validations");
+            }            
         }
 
         /// <summary>
@@ -84,6 +100,33 @@ namespace Stock.Api.Controllers
             
             this.service.Delete(productType);
             return Ok();
+        }
+
+        /// <summary>
+        /// Permite encontrar una o mas instancias que coincidan con los campos de busqueda
+        /// </summary>
+        /// <param name="model">Campos de busqueda</param>
+        [HttpPost("search")]
+        public ActionResult Search([FromBody] ProductTypeSearchDTO model)
+        {
+            Expression<Func<ProductType, bool>> filter = x => !string.IsNullOrWhiteSpace(x.Id);
+
+            if (!string.IsNullOrWhiteSpace(model.Initials))
+            {
+                filter = filter.AndOrCustom(
+                    x => x.Initials.ToUpper().Contains(model.Initials.ToUpper()),
+                    model.Condition.Equals(ActionDto.AND));
+            }
+
+            if (!string.IsNullOrWhiteSpace(model.Description))
+            {
+                filter = filter.AndOrCustom(
+                    x => x.Description.ToUpper().Contains(model.Description.ToUpper()),
+                    model.Condition.Equals(ActionDto.AND));
+            }
+
+            var productTypes = this.service.Search(filter);
+            return Ok(productTypes);
         }
     }
 }

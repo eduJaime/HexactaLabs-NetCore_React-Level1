@@ -10,8 +10,6 @@ using Stock.Api.Extensions;
 using Stock.AppService.Services;
 using Stock.Model.Entities;
 
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-
 namespace Stock.Api.Controllers
 {
     [Produces("application/json")]
@@ -28,7 +26,10 @@ namespace Stock.Api.Controllers
             this.mapper = mapper;
         }
 
-        // GET: api/<ProviderController>
+        /// <summary>
+        /// Permite recuperar todas las instancias
+        /// </summary>
+        /// <returns>Una colección de instancias</returns>
         [HttpGet]
         public ActionResult<IEnumerable<ProviderDTO>> Get()
         {
@@ -43,7 +44,11 @@ namespace Stock.Api.Controllers
             }
         }
 
-        // GET api/<ProviderController>/5
+        /// <summary>
+        /// Permite recuperar una instancia mediante un identificador
+        /// </summary>
+        /// <param name="id">Identificador de la instancia a recuperar</param>
+        /// <returns>Una instancia</returns>
         [HttpGet("{id}")]
         public ActionResult<ProviderDTO> Get(string id)
         {
@@ -58,44 +63,70 @@ namespace Stock.Api.Controllers
             }
         }
 
-        // POST api/<ProviderController>
+        /// <summary>
+        /// Permite crear una nueva instancia
+        /// </summary>
+        /// <param name="value">Una instancia</param>
         [HttpPost]
         public ActionResult Post([FromBody] ProviderDTO value)
         {
-            TryValidateModel(value);
-            try
+            if (TryValidateModel(value))
             {
-                var provider = this.mapper.Map<Provider>(value);
-                this.service.Create(provider);
-                value.Id = provider.Id;
+                try
+                {
+                    var provider = this.mapper.Map<Provider>(value);
+                    this.service.Create(provider);
+                    value.Id = provider.Id;
+                    return Ok(new { Success = true, Message = "", data = value });
+                }
+                catch
+                {
+                    return Ok(new { Success = false, Message = "Ups! Something Happened, Sorry" });
+                }
+            }
+            else {
+                return BadRequest("Missing Validations");
+            }
+        }
+
+        /// <summary>
+        /// Permite editar una instancia
+        /// </summary>
+        /// <param name="id">Identificador de la instancia a editar</param>
+        /// <param name="value">Una instancia con los nuevos datos</param>
+        [HttpPut("{id}")]
+        public ActionResult Put(string id, [FromBody] ProviderDTO value)
+        {
+            if (TryValidateModel(value))
+            {
+                var provider = this.service.Get(id);
+                this.mapper.Map<ProviderDTO, Provider>(value, provider);
+                this.service.Update(provider);
                 return Ok(new { Success = true, Message = "", data = value });
             }
-            catch
+            else
             {
-                return Ok(new { Success = false, Message = "Ups! Something Happened, Sorry" });
+                return BadRequest("Missing Validations");
             }
         }
 
-        // PUT api/<ProviderController>/5
-        [HttpPut("{id}")]
-        public void Put(string id, [FromBody] ProviderDTO value)
-        {
-            var provider = this.service.Get(id);
-            TryValidateModel(value);
-            this.mapper.Map<ProviderDTO, Provider>(value, provider);
-            this.service.Update(provider);
-        }
-
-        // DELETE api/<ProviderController>/5
+        /// <summary>
+        /// Permite borrar una instancia
+        /// </summary>
+        /// <param name="id">Identificador de la instancia a borrar</param>
         [HttpDelete("{id}")]
         public ActionResult Delete(string id)
         {
             var store = this.service.Get(id);
-
+            
             this.service.Delete(store);
             return Ok(new { Success = true, Message = "Delete Complete", data = id });
         }
 
+        /// <summary>
+        /// Permite encontrar una o mas instancias que coincidan con los campos de busqueda
+        /// </summary>
+        /// <param name="model">Campos de busqueda</param>
         [HttpPost("search")]
         public ActionResult Search([FromBody] ProviderSearchDTO model)
         {
